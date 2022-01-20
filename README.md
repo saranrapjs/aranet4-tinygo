@@ -14,7 +14,7 @@ humidity:    29%
 quality:     green
 battery:     96%
 interval:    5m0s
-time-stamp:  2022-01-20 15:48:28
+time-stamp:  2022-01-20 15:48:28 UTC
 
 $> aranet4-ls -ts -o out.csv
 CO2:         547 ppm
@@ -24,10 +24,10 @@ humidity:    29%
 quality:     green
 battery:     96%
 interval:    5m0s
-time-stamp:  2022-01-20 15:48:28
+time-stamp:  2022-01-20 15:48:28 UTC
 
 $> head out.csv
-id;timestamp;temperature (°C);humidity (%);pressure (hPa);CO2 (ppm)
+id;timestamp (UTC);temperature (°C);humidity (%);pressure (hPa);CO2 (ppm)
 0;2022-01-18 13:53:28;20.30;38;982.3;667
 1;2022-01-18 13:58:28;21.30;36;982.3;836
 2;2022-01-18 14:03:28;21.20;36;982.2;763

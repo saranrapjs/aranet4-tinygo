@@ -77,7 +77,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("could not read data: %+v", err)
 		}
-		fmt.Fprintf(w, "id;timestamp;temperature (°C);humidity (%%);pressure (hPa);CO2 (ppm)\n")
+		fmt.Fprintf(w, "id;timestamp (UTC);temperature (°C);humidity (%%);pressure (hPa);CO2 (ppm)\n")
 		for i, v := range vs {
 			fmt.Fprintf(w, "%d;%s;%.2f;%g;%.1f;%d\n",
 				i, v.Time.Format("2006-01-02 15:04:05"),
