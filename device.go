@@ -259,7 +259,7 @@ func (dev *Device) readN(dst []Data, id byte) error {
 			close(done)
 			return io.EOF
 		}
-		max := idx + cnt
+		max := min(idx+cnt, len(dst)) // a new sample may have appeared
 		dec := newDecoder(bytes.NewReader(p[4:]))
 		for i := idx; i < max; i++ {
 			err := dec.readField(id, &dst[i])
@@ -304,4 +304,11 @@ func (dev *Device) readN(dst []Data, id byte) error {
 	}
 
 	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
