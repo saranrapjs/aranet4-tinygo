@@ -4,6 +4,8 @@
 
 ## Installation
 
+### `aranet4-ls`
+
 ```sh
 $> go install sbinet.org/x/aranet4/cmd/aranet4-ls
 $> aranet4-ls
@@ -39,6 +41,11 @@ id;timestamp (UTC);temperature (°C);humidity (%);pressure (hPa);CO2 (ppm)
 8;2022-01-18 14:33:28;20.85;34;982.2;861
 ```
 
+### `aranet4-srv`
+
+`aranet4-srv` is a simple HTTP server that plots the full history of data samples one can retrieve from an `aranet4` sensor.
+
+![img](https://git.sr.ht/~sbinet/aranet4/blob/main/testdata/co2.png)
 ---
 
 This [Go](https://golang.org)-based driver is heavily inspired from [Anrijs/Aranet4-Python](https://github.com/Anrijs/Aranet4-Python). Thanks a bunch.
