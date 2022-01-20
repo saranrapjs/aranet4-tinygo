@@ -50,6 +50,9 @@ var (
 )
 
 // Quality gives a general assessment of air quality (green/yellow/red).
+//  - green:  [   0 - 1000) ppm
+//  - yellow: [1000 - 1400) ppm
+//  - red:    [1400 -  ...) ppm
 type Quality int
 
 func (st Quality) String() string {
