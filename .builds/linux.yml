@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Unlicense OR MIT
+image: debian/testing
+packages:
+ - curl
+sources:
+ - https://git.sr.ht/~sbinet/aranet4
+environment:
+ GOFLAGS: -mod=readonly
+ PATH: /home/build/sdk/go/bin:/usr/bin:/home/build/go/bin
+tasks:
+ - install_go1_17: |
+     mkdir -p /home/build/sdk
+     curl -L https://golang.org/dl/go1.17.linux-amd64.tar.gz | tar -C /home/build/sdk -xzf -
+ - test_linux_amd64: |
+     cd aranet4
+     GOARCH=amd64 go build -v ./...
+     GOARCH=amd64 go test -race ./...
+ - test_linux_arm64: |
+     cd aranet4
+     GOARCH=arm64 go build -v ./...
+ - check_gofmt: |
+     cd aranet4
+     test -z "$(gofmt -s -l .)"
+ - check_sign_off: |
+     set +x -e
+     cd aranet4
+     for hash in $(git log -n 20 --format="%H"); do
+        message=$(git log -1 --format=%B $hash)
+        if [[ ! "$message" =~ "Signed-off-by: " ]]; then
+            echo "Missing 'Signed-off-by' in commit $hash"
+            exit 1
+        fi
+     done

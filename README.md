@@ -1,5 +1,8 @@
 # aranet4
 
+[![Build status](https://builds.sr.ht/~sbinet/aranet4.svg)](https://builds.sr.ht/~sbinet/aranet4?)
+[![GoDoc](https://pkg.go.dev/badge/sbinet.org/x/aranet4)](https://pkg.go.dev/sbinet.org/x/aranet4)
+
 `aranet4` is a Bluez based driver for the [Aranet4](https://aranet4.com/) air quality monitor.
 
 ## Installation
