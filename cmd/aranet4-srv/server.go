@@ -76,22 +76,22 @@ func (srv *server) handleRoot(w http.ResponseWriter, r *http.Request) {
 
 func (srv *server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "image/png")
-	srv.plots.CO2.WriteTo(w)
+	w.Write(srv.plots.CO2.Bytes())
 }
 
 func (srv *server) handlePlotH(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "image/png")
-	srv.plots.H.WriteTo(w)
+	w.Write(srv.plots.H.Bytes())
 }
 
 func (srv *server) handlePlotP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "image/png")
-	srv.plots.P.WriteTo(w)
+	w.Write(srv.plots.P.Bytes())
 }
 
 func (srv *server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "image/png")
-	srv.plots.T.WriteTo(w)
+	w.Write(srv.plots.T.Bytes())
 }
 
 func (srv *server) loop() {
