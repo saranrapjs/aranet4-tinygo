@@ -6,110 +6,101 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"image/color"
-	"io"
 	"math"
-	"strings"
 
 	"go-hep.org/x/hep/hplot"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
+	"sbinet.org/x/aranet4"
 )
 
-func (srv *server) plot(w io.Writer) error {
-	srv.mu.RLock()
-	defer srv.mu.RUnlock()
+func (srv *server) plot(data []aranet4.Data) error {
+	var err error
 
-	xs := make([]float64, 0, len(srv.data))
-	for _, data := range srv.data {
-		xs = append(xs, float64(data.Time.Unix()))
+	xs := make([]float64, 0, len(data))
+	for _, v := range data {
+		xs = append(xs, float64(v.Time.Unix()))
 	}
 
-	plotCO2, err := srv.plotCO2(xs)
+	err = srv.plotCO2(xs, data)
 	if err != nil {
 		return fmt.Errorf("could not create CO2 plot: %w", err)
 	}
-	plotT, err := srv.plotT(xs)
+	err = srv.plotT(xs, data)
 	if err != nil {
 		return fmt.Errorf("could not create T plot: %w", err)
 	}
-	plotH, err := srv.plotH(xs)
+	err = srv.plotH(xs, data)
 	if err != nil {
 		return fmt.Errorf("could not create H plot: %w", err)
 	}
-	plotP, err := srv.plotP(xs)
+	err = srv.plotP(xs, data)
 	if err != nil {
 		return fmt.Errorf("could not create P plot: %w", err)
 	}
 
-	data, err := srv.row()
-	if err != nil {
-		return fmt.Errorf("could not read last sample: %w", err)
-	}
-	var last strings.Builder
-	fmt.Fprintf(&last, "%v", data)
-
-	fmt.Fprintf(w, page, last.String(), plotCO2, plotT, plotH, plotP)
 	return nil
 }
 
-func (srv *server) plotCO2(xs []float64) (string, error) {
+func (srv *server) plotCO2(xs []float64, data []aranet4.Data) error {
 	var (
-		ys = make([]float64, 0, len(srv.data))
+		ys = make([]float64, 0, len(data))
 	)
 
-	for _, data := range srv.data {
+	for _, data := range data {
 		ys = append(ys, float64(data.CO2))
 	}
 
 	c := color.NRGBA{B: 255, A: 255}
-	return srv.genPlot(xs, ys, "CO2 [ppm]", c)
+	return srv.genPlot(&srv.plots.CO2, xs, ys, "CO2 [ppm]", c)
 }
 
-func (srv *server) plotT(xs []float64) (string, error) {
+func (srv *server) plotT(xs []float64, data []aranet4.Data) error {
 	var (
-		ys = make([]float64, 0, len(srv.data))
+		ys = make([]float64, 0, len(data))
 	)
 
-	for _, data := range srv.data {
+	for _, data := range data {
 		ys = append(ys, float64(data.T))
 	}
 
 	c := color.NRGBA{R: 255, A: 255}
-	return srv.genPlot(xs, ys, "T [°C]", c)
+	return srv.genPlot(&srv.plots.T, xs, ys, "T [°C]", c)
 }
 
-func (srv *server) plotH(xs []float64) (string, error) {
+func (srv *server) plotH(xs []float64, data []aranet4.Data) error {
 	var (
-		ys = make([]float64, 0, len(srv.data))
+		ys = make([]float64, 0, len(data))
 	)
 
-	for _, data := range srv.data {
+	for _, data := range data {
 		ys = append(ys, float64(data.H))
 	}
 
 	c := color.NRGBA{G: 255, A: 255}
-	return srv.genPlot(xs, ys, "Humidity [%]", c)
+	return srv.genPlot(&srv.plots.H, xs, ys, "Humidity [%]", c)
 }
 
-func (srv *server) plotP(xs []float64) (string, error) {
+func (srv *server) plotP(xs []float64, data []aranet4.Data) error {
 	var (
-		ys = make([]float64, 0, len(srv.data))
+		ys = make([]float64, 0, len(data))
 	)
 
-	for _, data := range srv.data {
+	for _, data := range data {
 		ys = append(ys, float64(data.P))
 	}
 
 	c := color.NRGBA{B: 255, G: 255, A: 255}
-	return srv.genPlot(xs, ys, "Atmospheric Pressure [hPa]", c)
+	return srv.genPlot(&srv.plots.P, xs, ys, "Atmospheric Pressure [hPa]", c)
 }
 
-func (srv *server) genPlot(xs, ys []float64, label string, c color.NRGBA) (string, error) {
+func (srv *server) genPlot(buf *bytes.Buffer, xs, ys []float64, label string, c color.NRGBA) error {
+
+	buf.Reset()
 
 	plt := hplot.New()
 	plt.Y.Label.Text = label
@@ -117,7 +108,7 @@ func (srv *server) genPlot(xs, ys []float64, label string, c color.NRGBA) (strin
 
 	sca, err := hplot.NewScatter(hplot.ZipXY(xs, ys))
 	if err != nil {
-		return "", fmt.Errorf("could not create CO2 scatter plot: %w", err)
+		return fmt.Errorf("could not create CO2 scatter plot: %w", err)
 	}
 
 	c1 := c
@@ -130,7 +121,7 @@ func (srv *server) genPlot(xs, ys []float64, label string, c color.NRGBA) (strin
 
 	lin, err := hplot.NewLine(hplot.ZipXY(xs, ys))
 	if err != nil {
-		return "", fmt.Errorf("could not create CO2 line plot: %w", err)
+		return fmt.Errorf("could not create CO2 line plot: %w", err)
 	}
 	lin.LineStyle.Color = c1
 	lin.FillColor = c2
@@ -138,23 +129,23 @@ func (srv *server) genPlot(xs, ys []float64, label string, c color.NRGBA) (strin
 	plt.Add(hplot.NewGrid(), lin, sca)
 
 	const size = 20 * vg.Centimeter
-	buf := new(bytes.Buffer)
 	cnv := vgimg.PngCanvas{
 		Canvas: vgimg.New(vg.Length(math.Phi)*size, size),
 	}
 	plt.Draw(draw.New(cnv))
 	_, err = cnv.WriteTo(buf)
 	if err != nil {
-		return "", fmt.Errorf("could not create CO2 plot: %w", err)
+		return fmt.Errorf("could not create CO2 plot: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+	return nil
 }
 
 const page = `
 <html>
 	<head>
 		<title>Aranet4 monitoring</title>
+		<meta http-equiv="refresh" content="%d">
 	</head>
 
 	<body>
@@ -164,25 +155,25 @@ const page = `
 		<!-- CO2 -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="data:image/png;base64,%s"/>
+		  <img src="/plot-co2"/>
         </div>
 
 		<!-- Temperature -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="data:image/png;base64,%s"/>
+		  <img src="/plot-t"/>
         </div>
 		
 		<!-- Humidity -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="data:image/png;base64,%s"/>
+		  <img src="/plot-h"/>
         </div>
 
 		<!-- Pressure -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="data:image/png;base64,%s"/>
+		  <img src="/plot-p"/>
         </div>
 	</body>
 </html>

@@ -17,13 +17,20 @@ func main() {
 	var (
 		addr  = flag.String("addr", ":8080", "[host]:addr to serve")
 		devID = flag.String("device", "F5:6C:BE:D5:61:47", "MAC address of Aranet4")
+		db    = flag.String("db", "data.db", "path to DB file")
 	)
 
 	flag.Parse()
 
-	srv := newServer(*devID)
-	err := http.ListenAndServe(*addr, srv)
+	xmain(*addr, *devID, *db)
+}
+
+func xmain(addr, devID, db string) {
+	srv := newServer(devID, db)
+	defer srv.Close()
+
+	err := http.ListenAndServe(addr, srv)
 	if err != nil {
-		log.Fatalf("could not serve %q: %+v", *addr, err)
+		log.Panicf("could not serve %q: %+v", addr, err)
 	}
 }

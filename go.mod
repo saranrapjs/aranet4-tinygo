@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/muka/go-bluetooth v0.0.0-20211227071625-1c7f8793aa7e
 	go-hep.org/x/hep v0.29.2
+	go.etcd.io/bbolt v1.3.6
 	gonum.org/v1/plot v0.10.0
 )
 
