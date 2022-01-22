@@ -105,13 +105,13 @@ func (srv *server) loop() {
 	defer tck.Stop()
 
 	log.Printf("starting loop...")
-	err = srv.update()
+	err = srv.update(-1)
 	if err != nil {
 		log.Printf("could not update db: %+v", err)
 	}
 	for range tck.C {
 		log.Printf("tick: %s", time.Now().UTC().Format("2006-01-02 15:04:05"))
-		err := srv.update()
+		err := srv.update(1)
 		if err != nil {
 			log.Printf("could not update db: %+v", err)
 		}

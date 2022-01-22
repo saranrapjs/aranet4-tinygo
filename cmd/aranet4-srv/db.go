@@ -89,13 +89,25 @@ func (srv *server) init() error {
 	return nil
 }
 
-func (srv *server) update() error {
+func (srv *server) update(n int) error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
-	data, err := srv.fetchRows()
-	if err != nil {
-		return err
+	var (
+		data []aranet4.Data
+		err  error
+	)
+	switch {
+	case n == 1:
+		data, err = srv.fetchRow()
+		if err != nil {
+			return err
+		}
+	default:
+		data, err = srv.fetchRows()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = srv.write(data)
@@ -254,6 +266,20 @@ func (srv *server) fetchRows() ([]aranet4.Data, error) {
 	defer dev.Close()
 
 	return dev.ReadAll()
+}
+
+func (srv *server) fetchRow() ([]aranet4.Data, error) {
+	dev, err := aranet4.New(srv.addr)
+	if err != nil {
+		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
+	}
+	defer dev.Close()
+
+	v, err := dev.Read()
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve aranet4 data: %w", err)
+	}
+	return []aranet4.Data{v}, nil
 }
 
 func (srv *server) interval() (time.Duration, error) {
