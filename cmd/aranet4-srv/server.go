@@ -105,15 +105,32 @@ func (srv *server) loop() {
 	defer tck.Stop()
 
 	log.Printf("starting loop...")
-	err = srv.update(-1)
+	err = retry(5, func() error {
+		return srv.update(-1)
+	})
 	if err != nil {
 		log.Printf("could not update db: %+v", err)
 	}
 	for range tck.C {
 		log.Printf("tick: %s", time.Now().UTC().Format("2006-01-02 15:04:05"))
-		err := srv.update(1)
+		err := retry(5, func() error {
+			return srv.update(1)
+		})
 		if err != nil {
 			log.Printf("could not update db: %+v", err)
 		}
 	}
+}
+
+func retry(n int, f func() error) error {
+	var err error
+	for i := 0; i < n; i++ {
+		err = f()
+		if err != nil {
+			log.Printf("retry %d/%d failed with: %+v", i+1, n, err)
+			continue
+		}
+		return nil
+	}
+	return err
 }
