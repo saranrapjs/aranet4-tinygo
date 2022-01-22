@@ -210,6 +210,10 @@ func (dev *Device) ReadAll() ([]Data, error) {
 	return out, nil
 }
 
+var opReqCmd = map[string]interface{}{
+	"type": "request",
+}
+
 func (dev *Device) readN(dst []Data, id byte) error {
 	{
 		cmd := []byte{
@@ -225,7 +229,7 @@ func (dev *Device) readN(dst []Data, id byte) error {
 		}
 		defer c.Close()
 
-		err = c.WriteValue(cmd, nil)
+		err = c.WriteValue(cmd, opReqCmd)
 		if err != nil {
 			return fmt.Errorf("could not write command: %w", err)
 		}
