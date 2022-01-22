@@ -212,7 +212,9 @@ func (dev *Device) ReadAll() ([]Data, error) {
 	return out, nil
 }
 
-var opReqCmd = map[string]interface{}{
+type btOptions = map[string]interface{}
+
+var opReqCmd = btOptions{
 	"type": "request",
 }
 
