@@ -29,6 +29,7 @@ func xmain(addr, devID, db string) {
 	srv := newServer(devID, db)
 	defer srv.Close()
 
+	log.Printf("serving %q...", addr)
 	err := http.ListenAndServe(addr, srv)
 	if err != nil {
 		log.Panicf("could not serve %q: %+v", addr, err)
