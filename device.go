@@ -203,8 +203,10 @@ func (dev *Device) ReadAll() ([]Data, error) {
 
 	beg := now.Add(-ago - time.Duration(n-1)*delta)
 	for i := range out {
-		out[i].Time = beg.Add(time.Duration(i) * delta)
+		out[i].Battery = -1 // no battery information when fetching history.
+		out[i].Quality = qualityFrom(out[i].CO2)
 		out[i].Interval = delta
+		out[i].Time = beg.Add(time.Duration(i) * delta)
 	}
 
 	return out, nil

@@ -68,6 +68,17 @@ func (st Quality) String() string {
 	}
 }
 
+func qualityFrom(co2 int) Quality {
+	switch {
+	case co2 < 1000:
+		return 1
+	case co2 < 1400:
+		return 2
+	default:
+		return 3
+	}
+}
+
 // Data holds measured data samples provided by Aranet4.
 type Data struct {
 	H, P, T float64
