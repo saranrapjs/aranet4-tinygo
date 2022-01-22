@@ -41,6 +41,7 @@ func newServer(addr, dbfile string) *server {
 		mux:  http.NewServeMux(),
 	}
 	srv.mux.HandleFunc("/", srv.handleRoot)
+	srv.mux.HandleFunc("/update", srv.handleUpdate)
 	srv.mux.HandleFunc("/plot-co2", srv.handlePlotCO2)
 	srv.mux.HandleFunc("/plot-h", srv.handlePlotH)
 	srv.mux.HandleFunc("/plot-p", srv.handlePlotP)
@@ -72,6 +73,19 @@ func (srv *server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		refresh = 10
 	}
 	fmt.Fprintf(w, page, refresh, srv.last.String())
+}
+
+func (srv *server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	err := retry(10, func() error {
+		return srv.update(-1)
+	})
+	if err != nil {
+		fmt.Fprintf(w, "could not fetch update samples: %+v\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func (srv *server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
