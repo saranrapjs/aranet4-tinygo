@@ -90,9 +90,6 @@ func (srv *server) init() error {
 }
 
 func (srv *server) update(n int) error {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
 	var (
 		data []aranet4.Data
 		err  error
@@ -154,6 +151,9 @@ func (srv *server) rows() ([]aranet4.Data, error) {
 }
 
 func (srv *server) write(vs []aranet4.Data) error {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
 	if len(vs) == 0 {
 		return nil
 	}
