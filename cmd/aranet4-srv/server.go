@@ -41,6 +41,7 @@ func newServer(addr, dbfile string) *server {
 		mux:  http.NewServeMux(),
 	}
 	srv.mux.HandleFunc("/", srv.handleRoot)
+	srv.mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
 	srv.mux.HandleFunc("/update", srv.handleUpdate)
 	srv.mux.HandleFunc("/plot-co2", srv.handlePlotCO2)
 	srv.mux.HandleFunc("/plot-h", srv.handlePlotH)
