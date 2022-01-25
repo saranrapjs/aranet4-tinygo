@@ -109,7 +109,14 @@ func (srv *server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 }
 
 func (srv *server) loop() {
-	interval, err := srv.interval()
+	var (
+		interval time.Duration
+		err      error
+	)
+	err = retry(5, func() error {
+		interval, err = srv.interval()
+		return err
+	})
 	if err != nil {
 		log.Panicf("could not fetch refresh frequency: %+v", err)
 	}
