@@ -76,7 +76,11 @@ func (srv *server) init() error {
 		return fmt.Errorf("could not find last data sample: %w", err)
 	}
 
-	data, err := srv.rows()
+	var (
+		beg int64 = 0
+		end int64 = -1
+	)
+	data, err := srv.rows(beg, end)
 	if err != nil {
 		return fmt.Errorf("could not read data from db: %w", err)
 	}
@@ -112,7 +116,7 @@ func (srv *server) update(n int) error {
 		return err
 	}
 
-	data, err = srv.rows()
+	data, err = srv.rows(0, -1)
 	if err != nil {
 		return err
 	}
@@ -120,7 +124,7 @@ func (srv *server) update(n int) error {
 	return srv.plot(data)
 }
 
-func (srv *server) rows() ([]aranet4.Data, error) {
+func (srv *server) rows(beg, end int64) ([]aranet4.Data, error) {
 	var rows []aranet4.Data
 	err := srv.db.View(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket(bucketData)
@@ -134,6 +138,13 @@ func (srv *server) rows() ([]aranet4.Data, error) {
 			)
 			if err != nil {
 				return err
+			}
+			id := row.Time.UTC().Unix()
+			if beg > id {
+				return nil
+			}
+			if end > 0 && id > end {
+				return nil
 			}
 			rows = append(rows, row)
 			return nil

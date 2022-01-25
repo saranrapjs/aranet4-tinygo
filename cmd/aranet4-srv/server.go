@@ -66,8 +66,46 @@ func (srv *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (srv *server) handleRoot(w http.ResponseWriter, r *http.Request) {
-	srv.mu.RLock()
-	defer srv.mu.RUnlock()
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Fprintf(w, "could not parse form: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	cnv := func(name string) int64 {
+		v := r.Form.Get(name)
+		if v == "" {
+			return -1
+		}
+		vv, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return -1
+		}
+		return vv.UTC().Unix()
+	}
+
+	var (
+		beg = cnv("from")
+		end = cnv("to")
+	)
+
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	data, err := srv.rows(beg, end)
+	if err != nil {
+		fmt.Fprintf(w, "could not read rows from db: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = srv.plot(data)
+	if err != nil {
+		fmt.Fprintf(w, "could not create plots: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	refresh := int(srv.last.Interval.Seconds())
 	if refresh == 0 {
@@ -90,21 +128,33 @@ func (srv *server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (srv *server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
+
 	w.Header().Set("content-type", "image/png")
 	w.Write(srv.plots.CO2.Bytes())
 }
 
 func (srv *server) handlePlotH(w http.ResponseWriter, r *http.Request) {
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
+
 	w.Header().Set("content-type", "image/png")
 	w.Write(srv.plots.H.Bytes())
 }
 
 func (srv *server) handlePlotP(w http.ResponseWriter, r *http.Request) {
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
+
 	w.Header().Set("content-type", "image/png")
 	w.Write(srv.plots.P.Bytes())
 }
 
 func (srv *server) handlePlotT(w http.ResponseWriter, r *http.Request) {
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
+
 	w.Header().Set("content-type", "image/png")
 	w.Write(srv.plots.T.Bytes())
 }
@@ -126,13 +176,14 @@ func (srv *server) loop() {
 	tck := time.NewTicker(interval)
 	defer tck.Stop()
 
-	log.Printf("starting loop...")
+	log.Printf("fetching history data...")
 	err = retry(5, func() error {
 		return srv.update(-1)
 	})
 	if err != nil {
 		log.Printf("could not update db: %+v", err)
 	}
+	log.Printf("starting loop...")
 	for range tck.C {
 		log.Printf("tick: %s", time.Now().UTC().Format("2006-01-02 15:04:05"))
 		err := retry(5, func() error {
