@@ -7,44 +7,45 @@ package aranet4
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
+	// "errors"
 	"fmt"
-	"io"
+	// "io"
 	"time"
 
-	"github.com/muka/go-bluetooth/bluez/profile/adapter"
-	"github.com/muka/go-bluetooth/bluez/profile/device"
+	// "github.com/muka/go-bluetooth/bluez/profile/adapter"
+	// "github.com/muka/go-bluetooth/bluez/profile/device"
+	"tinygo.org/x/bluetooth"
 )
 
 type Device struct {
 	addr string
-	dev  *device.Device1
+	dev  *bluetooth.Device
+	scan bluetooth.ScanResult
+	svc *bluetooth.DeviceService
 }
 
 func New(addr string) (*Device, error) {
-	ad, err := adapter.GetDefaultAdapter()
+	ad := bluetooth.DefaultAdapter
+	err := ad.Enable()
 	if err != nil {
-		return nil, fmt.Errorf("could not find default adapter: %w", err)
+		return nil, fmt.Errorf("could not set default adapter power: %w", err)
 	}
-	powered, err := ad.GetPowered()
-	if err != nil {
-		return nil, fmt.Errorf("could not check default adapter power: %w", err)
-	}
-	if !powered {
-		err = ad.SetPowered(true)
-		if err != nil {
-			return nil, fmt.Errorf("could not set default adapter power: %w", err)
+
+	var foundDevice bluetooth.ScanResult
+	err = ad.Scan(func(adapter *bluetooth.Adapter, result bluetooth.ScanResult) {
+		if (result.Address.String() != addr) {
+			return
 		}
+		foundDevice = result			
+		// Stop the scan.
+		adapter.StopScan()
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not start a scan %q: %w", addr, err)
 	}
 
-	dev, err := ad.GetDeviceByAddress(addr)
+	dev, err := ad.Connect(foundDevice.Address, bluetooth.ConnectionParams{})
 	if err != nil {
-		return nil, fmt.Errorf("could not find device %q: %w", addr, err)
-	}
-
-	err = dev.Connect()
-	if err != nil {
-		dev.Close()
 		return nil, fmt.Errorf("could not connect to %q: %w", addr, err)
 	}
 
@@ -55,11 +56,6 @@ func (dev *Device) Close() error {
 	if dev.dev == nil {
 		return nil
 	}
-	defer func() {
-		dev.dev.Close()
-		dev.dev = nil
-	}()
-
 	err := dev.dev.Disconnect()
 	if err != nil {
 		return fmt.Errorf("could not disconnect: %w", err)
@@ -68,18 +64,50 @@ func (dev *Device) Close() error {
 }
 
 func (dev *Device) Name() (string, error) {
-	return dev.dev.GetName()
+	return dev.scan.LocalName(), nil
+}
+
+func toUUID(str string) bluetooth.UUID {
+	u, _ := bluetooth.ParseUUID(str)
+	return u
+}
+
+func (dev *Device) getCharByUUID(uuidstr string) (*bluetooth.DeviceCharacteristic, error) {
+	uuid := toUUID(uuidstr)
+	if dev.svc == nil {
+		svcs, err := dev.dev.DiscoverServices(nil)		
+		if err != nil {
+			return nil, fmt.Errorf("could not find service: %w", err)
+		}
+		for _, s := range svcs {
+			if s.UUID() == toUUID(uuidDeviceService) {
+				dev.svc = &s
+			}
+		}
+	}
+	if dev.svc == nil {
+		return nil, fmt.Errorf("no service found", nil)
+	}
+	chars, err := dev.svc.DiscoverCharacteristics([]bluetooth.UUID{uuid})
+	if err != nil {
+		return nil, fmt.Errorf("could not get characteristic %q: %w", uuidCommonReadSWRevision, err)
+	}
+	var foundChar bluetooth.DeviceCharacteristic
+	for _, char := range chars {
+		if char.UUID() == uuid {
+			foundChar = char
+		}
+	}
+	return &foundChar, nil
 }
 
 func (dev *Device) Version() (string, error) {
-	c, err := dev.dev.GetCharByUUID(uuidCommonReadSWRevision)
+	char, err := dev.getCharByUUID(uuidCommonReadSWRevision)
 	if err != nil {
 		return "", fmt.Errorf("could not get characteristic %q: %w", uuidCommonReadSWRevision, err)
 	}
-	defer c.Close()
-
-	raw, err := c.ReadValue(nil)
-	if err != nil {
+	raw := make([]byte, 255)
+	if n, err := char.Read(raw); err != nil || n == 0 {
 		return "", fmt.Errorf("could not read device name: %w", err)
 	}
 	return string(raw), nil
@@ -87,15 +115,13 @@ func (dev *Device) Version() (string, error) {
 
 func (dev *Device) Read() (Data, error) {
 	var data Data
-
-	c, err := dev.dev.GetCharByUUID(uuidReadAll)
+	c, err := dev.getCharByUUID(uuidReadAll)
 	if err != nil {
 		return data, fmt.Errorf("could not get characteristic %q: %w", uuidReadAll, err)
 	}
-	defer c.Close()
 
-	raw, err := c.ReadValue(nil)
-	if err != nil {
+	raw := make([]byte, 255)
+	if n, err := c.Read(raw); err != nil || n == 0 {
 		return data, fmt.Errorf("could not get value: %w", err)
 	}
 
@@ -117,14 +143,13 @@ func (dev *Device) Read() (Data, error) {
 }
 
 func (dev *Device) NumData() (int, error) {
-	c, err := dev.dev.GetCharByUUID(uuidReadTotalReadings)
+	c, err := dev.getCharByUUID(uuidReadTotalReadings)
 	if err != nil {
 		return 0, fmt.Errorf("could not get characteristic %q: %w", uuidReadTotalReadings, err)
 	}
-	defer c.Close()
 
-	raw, err := c.ReadValue(nil)
-	if err != nil {
+	raw := make([]byte, 255)
+	if n, err := c.Read(raw); err != nil || n == 0 {
 		return 0, fmt.Errorf("could not get value: %w", err)
 	}
 
@@ -132,14 +157,13 @@ func (dev *Device) NumData() (int, error) {
 }
 
 func (dev *Device) Since() (time.Duration, error) {
-	c, err := dev.dev.GetCharByUUID(uuidReadSecondsSinceUpdate)
+	c, err := dev.getCharByUUID(uuidReadSecondsSinceUpdate)
 	if err != nil {
 		return 0, fmt.Errorf("could not get characteristic %q: %w", uuidReadSecondsSinceUpdate, err)
 	}
-	defer c.Close()
 
-	raw, err := c.ReadValue(nil)
-	if err != nil {
+	raw := make([]byte, 255)
+	if n, err := c.Read(raw); err != nil || n == 0 {
 		return 0, fmt.Errorf("could not get value: %w", err)
 	}
 
@@ -155,14 +179,13 @@ func (dev *Device) Since() (time.Duration, error) {
 }
 
 func (dev *Device) Interval() (time.Duration, error) {
-	c, err := dev.dev.GetCharByUUID(uuidReadInterval)
+	c, err := dev.getCharByUUID(uuidReadInterval)
 	if err != nil {
 		return 0, fmt.Errorf("could not get characteristic %q: %w", uuidReadInterval, err)
 	}
-	defer c.Close()
 
-	raw, err := c.ReadValue(nil)
-	if err != nil {
+	raw := make([]byte, 255)
+	if n, err := c.Read(raw); err != nil || n == 0 {
 		return 0, fmt.Errorf("could not get value: %w", err)
 	}
 
@@ -177,6 +200,7 @@ func (dev *Device) Interval() (time.Duration, error) {
 	return ago, nil
 }
 
+// This doesnt really work right now.
 func (dev *Device) ReadAll() ([]Data, error) {
 	now := time.Now().UTC()
 	ago, err := dev.Since()
@@ -212,11 +236,11 @@ func (dev *Device) ReadAll() ([]Data, error) {
 	return out, nil
 }
 
-type btOptions = map[string]interface{}
+// type btOptions = map[string]interface{}
 
-var opReqCmd = btOptions{
-	"type": "request",
-}
+// var opReqCmd = btOptions{
+// 	"type": "request",
+// }
 
 func (dev *Device) readN(dst []Data, id byte) error {
 	{
@@ -227,84 +251,53 @@ func (dev *Device) readN(dst []Data, id byte) error {
 		binary.LittleEndian.PutUint16(cmd[4:], 0x0001)
 		binary.LittleEndian.PutUint16(cmd[6:], 0xffff)
 
-		c, err := dev.dev.GetCharByUUID(uuidWriteCmd)
+		c, err := dev.getCharByUUID(uuidWriteCmd)
 		if err != nil {
 			return fmt.Errorf("could not get characteristic %q: %w", uuidWriteCmd, err)
 		}
-		defer c.Close()
 
-		err = c.WriteValue(cmd, opReqCmd)
+		_, err = c.WriteWithoutResponse(cmd)
 		if err != nil {
 			return fmt.Errorf("could not write command: %w", err)
 		}
 	}
 
-	c, err := dev.dev.GetCharByUUID(uuidReadTimeSeries)
+	c, err := dev.getCharByUUID(uuidReadTimeSeries)
 	if err != nil {
 		return fmt.Errorf("could not get characteristic %q: %w", uuidReadTimeSeries, err)
 	}
 
-	ch, err := c.WatchProperties()
-	if err != nil {
-		return fmt.Errorf("could not watch props: %w", err)
-	}
-
-	err = c.StartNotify()
-	if err != nil {
-		return fmt.Errorf("could not start notify: %w", err)
-	}
-
 	done := make(chan struct{})
-	cbk := func(p []byte) error {
+
+	var errLoop error
+	err = c.EnableNotifications(func(p []byte) {
 		param := p[0]
+		fmt.Println("param")
+		fmt.Println(param)
 		if param != id {
-			return fmt.Errorf("invalid parameter: got=0x%x, want=0x%x", param, id)
+			errLoop = fmt.Errorf("invalid parameter: got=0x%x, want=0x%x", param, id)
+			return
 		}
 
 		idx := int(binary.LittleEndian.Uint16(p[1:]) - 1)
 		cnt := int(p[3])
 		if cnt == 0 {
 			close(done)
-			return io.EOF
+			return
 		}
 		max := min(idx+cnt, len(dst)) // a new sample may have appeared
 		dec := newDecoder(bytes.NewReader(p[4:]))
 		for i := idx; i < max; i++ {
 			err := dec.readField(id, &dst[i])
 			if err != nil {
-				return fmt.Errorf("could not read param=%d, idx=%d: %w", id, i, err)
-			}
-		}
-		return nil
-	}
-
-	var errLoop error
-	go func() {
-		const iface = "org.bluez.GattCharacteristic1"
-		for v := range ch {
-			if v == nil {
+				errLoop = fmt.Errorf("could not read param=%d, idx=%d: %w", id, i, err)
 				return
 			}
-			if v.Interface == iface && v.Name == "Value" {
-				err := cbk(v.Value.([]byte))
-				if err != nil {
-					if !errors.Is(err, io.EOF) {
-						errLoop = err
-					}
-				}
-			}
 		}
-	}()
-	<-done
-
-	err = c.UnwatchProperties(ch)
+		return
+	})
 	if err != nil {
-		return fmt.Errorf("could not unwatch props: %w", err)
-	}
-
-	err = c.StopNotify()
-	if err != nil {
-		return fmt.Errorf("could not stop-notify: %w", err)
+		return fmt.Errorf("could not watch props: %w", err)
 	}
 
 	if errLoop != nil {

@@ -1,7 +1,6 @@
 # aranet4
 
-[![Build status](https://builds.sr.ht/~sbinet/aranet4.svg)](https://builds.sr.ht/~sbinet/aranet4?)
-[![GoDoc](https://pkg.go.dev/badge/sbinet.org/x/aranet4)](https://pkg.go.dev/sbinet.org/x/aranet4)
+This is a fork of the [`aranet4`](https://git.sr.ht/~sbinet/aranet4) package, tweaked to use [`tiny-go/bluetooth`](https://github.com/tinygo-org/bluetooth) to support Bluetooth cross-platform (e.g. MacOS/Windows as well as Linux).
 
 `aranet4` is a Bluez based driver for the [Aranet4](https://aranet4.com/) air quality monitor.
 

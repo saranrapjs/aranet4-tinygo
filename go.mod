@@ -29,4 +29,5 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	gonum.org/v1/gonum v0.9.3 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	tinygo.org/x/bluetooth v0.5.0 // indirect
 )
