@@ -1,4 +1,4 @@
-module sbinet.org/x/aranet4
+module github.com/saranrapjs/aranet4-tinygo
 
 go 1.17
 
